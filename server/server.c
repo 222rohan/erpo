@@ -7,6 +7,8 @@
 #include <time.h>
 #include "console.h"  // Custom header for console
 
+int server_sock;
+
 #define PORT 8080
 #define MAX_CLIENTS 1000
 
@@ -47,7 +49,7 @@ void run_server() {
         exit(EXIT_FAILURE);
     }
 
-    printf("Server running on port %d...\n", PORT);
+    printf("Server %s running on port %d...\n", inet_ntoa(server_addr.sin_addr), PORT);
 
     // Launch the interactive console in a separate thread
     pthread_t console_thread;

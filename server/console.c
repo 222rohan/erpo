@@ -7,7 +7,7 @@
 #include "console.h"
 
 // Global variables
-int server_sock;
+
 Client clients[MAX_CLIENTS];
 int client_count = 0;
 pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
