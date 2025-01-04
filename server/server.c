@@ -1,3 +1,16 @@
+
+/*
+
+3 main issues;
+
+1.kick doesnt work,kickall doesnt work
+
+2. status adds time connected even after client disconnects (possibly because client isnt kicked, but structure of client shows offline??)
+
+3. client runs into infinite \n loop after server stops
+
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +22,7 @@
 
 int server_sock;
 
-#define PORT 8080
+#define PORT 8081
 #define MAX_CLIENTS 1000
 
 // Function prototypes

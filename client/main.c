@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <pthread.h>
 
-#define PORT 8080
+#define PORT 8081
 
 void serv_connect(const char *ip, int port) {
     int sock = 0;
@@ -34,9 +34,15 @@ void serv_connect(const char *ip, int port) {
     }
 
     send(sock, "Hello from client", strlen("Hello from client"), 0);
+    while(1) {
+        read(sock, buffer, 1024);
+        printf("%s\n", buffer);
+    }
     return;
 }
 
 int main() {
+    const char *ip = "0.0.0.0";
+    int port = PORT;
     serv_connect(ip, port);
 }
