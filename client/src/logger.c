@@ -1,4 +1,5 @@
 #include "../include/logger.h"
+#include "../include/client.h"
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
@@ -13,7 +14,8 @@ pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 void log_event(const char *message) {
     pthread_mutex_lock(&log_mutex);
 
-    FILE *log_file = fopen(LOG_FILE, "a"); // Append mode
+    FILE *log_file = fopen(LOG_FILE, "a+"); // Append mode
+
     if (!log_file) {
         pthread_mutex_unlock(&log_mutex);
         return;

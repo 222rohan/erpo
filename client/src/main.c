@@ -1,3 +1,4 @@
+// main.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,8 @@
 
 #define DEFAULT_SERVER_IP "127.0.0.1"
 #define DEFAULT_SERVER_PORT 8080
+#define HEARTBEAT_INTERVAL 10   // seconds between heartbeats
+#define BUFFER_SIZE 1024
 
 // Global variables
 int server_socket;
@@ -23,44 +26,31 @@ pthread_mutex_t server_mutex = PTHREAD_MUTEX_INITIALIZER;
 // Function prototypes
 void *network_monitor_thread(void *arg);
 void *system_monitor_thread(void *arg);
+void *heartbeat_thread(void *arg);
 void daemonize();
 void signal_handler(int sig);
 
 int main(int argc, char *argv[]) {
     struct sockaddr_in server_addr;
-    pthread_t net_thread, sys_thread;
+    pthread_t net_thread, sys_thread, hb_thread;
 
     // Parse command-line arguments (server IP & port)
     const char *server_ip = (argc > 1) ? argv[1] : DEFAULT_SERVER_IP;
     int server_port = (argc > 2) ? atoi(argv[2]) : DEFAULT_SERVER_PORT;
 
+    log_event("Client started...");
+    log_event("Connecting to server");
     // Convert client process to a daemon
-    daemonize();
+    daemonize(); 
+    log_event("Client daemon started successfully");
 
     // Handle termination signals
     signal(SIGTERM, signal_handler);
     signal(SIGINT, signal_handler);
 
-    // Create socket
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket == -1) {
-        log_event("Socket creation failed");
-        return EXIT_FAILURE;
-    }
-
-    // Configure server address
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(server_port);
-    if (inet_pton(AF_INET, server_ip, &server_addr.sin_addr) <= 0) {
-        log_event("Invalid IP address format");
-        close(server_socket);
-        return EXIT_FAILURE;
-    }
-
-    // Connect to the server
-    if (connect(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
-        log_event("Failed to connect to server");
-        close(server_socket);
+    // Connect to the server using function from client.c
+    if (connect_to_server(server_ip, server_port) != 0) {
+        log_event("Failed to connect to server, exiting.");
         return EXIT_FAILURE;
     }
 
@@ -69,76 +59,77 @@ int main(int argc, char *argv[]) {
     // Start monitoring threads
     pthread_create(&net_thread, NULL, network_monitor_thread, &server_socket);
     pthread_create(&sys_thread, NULL, system_monitor_thread, &server_socket);
+    pthread_create(&hb_thread, NULL, heartbeat_thread, &server_socket);
 
-    // Join monitoring threads (daemon runs indefinitely)
+    // Join threads (the heartbeat thread will exit if the server stops responding)
     pthread_join(net_thread, NULL);
     pthread_join(sys_thread, NULL);
+    pthread_join(hb_thread, NULL);
 
     // Cleanup
     close(server_socket);
     return EXIT_SUCCESS;
 }
 
-// ---------------------- THREAD FUNCTIONS ----------------------
-
 // Network monitoring thread
 void *network_monitor_thread(void *arg) {
-    int server_socket = *((int *)arg);
+    int sock = *((int *)arg);
     log_event("[Network Monitor] Started");
-    monitor_network(server_socket);
+    monitor_network(sock);
     return NULL;
 }
 
 // System monitoring thread
 void *system_monitor_thread(void *arg) {
-    int server_socket = *((int *)arg);
+    int sock = *((int *)arg);
     log_event("[System Monitor] Started");
-    monitor_system(server_socket);
+    monitor_system(sock);
     return NULL;
 }
 
-// ---------------------- DAEMON FUNCTION ----------------------
+// Heartbeat thread: sends "heartbeat" messages and waits for "OK" reply.
+// If no proper reply is received, the daemon exits.
+void *heartbeat_thread(void *arg) {
+    int sock = *((int *)arg);
+    char response[BUFFER_SIZE];
+    while (1) {
+        sleep(HEARTBEAT_INTERVAL);
+        if (send_message_to_server("heartbeat") < 0) {
+            log_event("Heartbeat send failed; exiting client daemon");
+            exit(EXIT_FAILURE);
+        }
+        if (receive_message_from_server(response, BUFFER_SIZE) <= 0 || strcmp(response, "OK") != 0) {
+            log_event("Heartbeat response not received or invalid; exiting client daemon");
+            exit(EXIT_FAILURE);
+        }
+        //log_event("Heartbeat OK received");
+    }
+    return NULL;
+}
+
 void daemonize() {
-    pid_t pid;
+    log_event("Daemonizing client process...");
 
-    // Fork the process
+    pid_t pid = fork();
+    if (pid < 0) exit(EXIT_FAILURE);
+    if (pid > 0) exit(EXIT_SUCCESS);  // Parent exits
+
+    if (setsid() < 0) exit(EXIT_FAILURE);
     pid = fork();
-    if (pid < 0) {
-        exit(EXIT_FAILURE);
-    }
-    if (pid > 0) {
-        exit(EXIT_SUCCESS);  // Parent process exits
-    }
+    if (pid < 0) exit(EXIT_FAILURE);
+    if (pid > 0) exit(EXIT_SUCCESS);
 
-    // Create a new session
-    if (setsid() < 0) {
-        exit(EXIT_FAILURE);
-    }
-
-    // Fork again to ensure no terminal control
-    pid = fork();
-    if (pid < 0) {
-        exit(EXIT_FAILURE);
-    }
-    if (pid > 0) {
-        exit(EXIT_SUCCESS);
-    }
-
-    // Set file permissions
     umask(0);
-
-    // Change working directory to root
-    chdir("/");
+    // chdir("/");
 
     // Close standard file descriptors
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
-
-    log_event("Client daemon started successfully");
 }
 
-// ---------------------- SIGNAL HANDLER ----------------------
+
+// Signal handler for graceful shutdown
 void signal_handler(int sig) {
     log_event("Received termination signal, shutting down...");
     close(server_socket);

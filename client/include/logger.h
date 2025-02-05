@@ -6,8 +6,9 @@
 #include <time.h>
 #include <pthread.h>
 
+
 // Log file path
-#define LOG_FILE "../test.log"  // Change if necessary
+#define LOG_FILE "./local_logs.log"  // Change if necessary
 
 // Mutex for thread-safe logging
 extern pthread_mutex_t log_mutex;
