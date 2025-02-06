@@ -2,7 +2,7 @@
 CC = gcc
 
 # Compiler Flags
-CFLAGS = -Wall -Wextra -std=c11 -O2
+CFLAGS = -Wall -Wextra
 
 # Include Path
 INCLUDES = -Iinclude
@@ -17,26 +17,21 @@ SRCS = src/main.c \
        src/system_monitor.c \
        src/logger.c
 
-# Object Files (Automatically replaces .c with .o)
-OBJS = $(SRCS:.c=.o)
-
 # Output Binary Name
 TARGET = client
+
+LOGS = logs/
 
 # Default rule: Build the client
 all: $(TARGET)
 
-# Link Object Files into Executable
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) $(LIBS)
-
-# Compile C files into object files
-%.o: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+# Build the client
+$(TARGET): $(SRCS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $(TARGET) $(SRCS) $(LIBS)
 
 # Clean build files
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -rf $(LOGS) $(TARGET)
 
 # Run the client with default IP and port
 run: all
