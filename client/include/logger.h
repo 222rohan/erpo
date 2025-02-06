@@ -8,10 +8,17 @@
 
 
 // Log file path
-#define LOG_FILE "./local_logs.log"  // Change if necessary
+#define LOG_FILE_PATH "./logs/"  // Change if necessary
 
+extern char log_file_name[64];
 // Mutex for thread-safe logging
 extern pthread_mutex_t log_mutex;
+
+
+/**
+ * @brief Initializes the logger.
+ */
+void log_init();
 
 /**
  * @brief Logs an event to the log file.
