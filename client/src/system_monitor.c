@@ -50,6 +50,7 @@ void *usb_monitor_thread(void *arg) {
                 snprintf(log_msg, sizeof(log_msg), "USB device detected: %s", event->name);
                 log_event(log_msg);
                 send_message_to_server(log_msg);
+                
             }
         }
     }
@@ -77,7 +78,7 @@ void *audit_monitor_thread(void *arg) {
         int length = audit_get_reply(audit_fd, (struct audit_reply *)buffer, sizeof(buffer), 0);
         if (length > 0) {
             log_event("System modification detected");
-            send_message_to_server("System modification detected");
+            send_message_to_server("[Audit Monitor] System modification detected");
         }
     }
 

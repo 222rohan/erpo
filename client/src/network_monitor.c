@@ -53,12 +53,21 @@ void monitor_network(int server_socket) {
     struct bpf_program filter;
     bpf_u_int32 net, mask;
 
-    // Find the default network interface
-    char *dev = pcap_lookupdev(errbuf);
-    if (dev == NULL) {
-        log_event("Network monitor: No device found");
-        return;
+    pcap_if_t *alldevs, *dev;
+    if (pcap_findalldevs(&alldevs, errbuf) == -1) {
+        fprintf(stderr, "Error finding devices: %s\n", errbuf);
+        exit(EXIT_FAILURE);
     }
+
+    dev = alldevs;
+    if (dev == NULL) {
+        fprintf(stderr, "No network devices found\n");
+        exit(EXIT_FAILURE);
+    }
+
+    char log_msg[256];
+    snprintf(log_msg, sizeof(log_msg), "Network devices found: %s", dev->name);
+    log_event(log_msg);
 
     // Get network address and mask
     if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
@@ -86,6 +95,7 @@ void monitor_network(int server_socket) {
     pcap_loop(handle, 0, packet_handler, (u_char *)&server_socket);
 
     // Cleanup
+    pcap_freealldevs(alldevs);
     pcap_freecode(&filter);
     pcap_close(handle);
 }
