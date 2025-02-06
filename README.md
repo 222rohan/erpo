@@ -18,23 +18,16 @@ it consists of a stealth client daemon called 'eidolon' that monitors system and
 | `stop` | shut down the server |
 
 ### **eidolon**
-logs activity on a local file, also sends to the server. 
-
----
+logs activity on a local file, also sends the same to the server. 
 
 ## **limitations**
 - does not work on wsl
-- not fully tamper
-
----
+- not fully tamper free
 
 ## **future**
 - use of LKMs for kernel level monitoring
 - tamper free eidolon using a watchdog daemon 'cerberus'
 
----
-
 
 ## **acknowledgement**
 thanks to open-source tools like `libpcap`, `auditd`, and `inotify`.
----

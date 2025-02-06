@@ -38,6 +38,8 @@ int main(int argc, char *argv[]) {
     const char *server_ip = (argc > 1) ? argv[1] : DEFAULT_SERVER_IP;
     int server_port = (argc > 2) ? atoi(argv[2]) : DEFAULT_SERVER_PORT;
 
+    log_init();
+
     log_event("Client started...");
     log_event("Connecting to server");
     // Convert client process to a daemon

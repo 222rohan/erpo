@@ -1,13 +1,11 @@
+// client.c
 #include "../include/client.h"
 #include "../include/logger.h"
+#include <errno.h>
+#include <pthread.h>
+#include <string.h>
+#include <unistd.h>
 
-/**
- * @brief Establishes a connection to the ERPO server.
- * 
- * @param server_ip   IP address of the server.
- * @param server_port Port number of the server.
- * @return int        Returns 0 on success, -1 on failure.
- */
 int connect_to_server(const char *server_ip, int server_port) {
     struct sockaddr_in server_addr;
 
@@ -38,33 +36,21 @@ int connect_to_server(const char *server_ip, int server_port) {
     return 0;
 }
 
-/**
- * @brief Sends a message to the ERPO server.
- * 
- * @param message The message to send.
- * @return int    Returns 0 on success, -1 on failure.
- */
 int send_message_to_server(const char *message) {
+    int status;
     pthread_mutex_lock(&server_mutex);
-    int status = send(server_socket, message, strlen(message), 0);
+    status = send(server_socket, message, strlen(message), 0);
     pthread_mutex_unlock(&server_mutex);
 
     if (status == -1) {
         log_event("Failed to send message to server");
+        perror("send");
         return -1;
     }
 
-    log_event("Message sent to server");
-    return 0;
+    return status;
 }
 
-/**
- * @brief Receives a response from the ERPO server.
- * 
- * @param buffer  Buffer to store the received response.
- * @param size    Size of the buffer.
- * @return int    Returns the number of bytes received, or -1 on failure.
- */
 int receive_message_from_server(char *buffer, size_t size) {
     memset(buffer, 0, size);
     
@@ -76,14 +62,9 @@ int receive_message_from_server(char *buffer, size_t size) {
         log_event("Failed to receive message from server");
         return -1;
     }
-
-    log_event("Message received from server");
     return bytes_received;
 }
 
-/**
- * @brief Closes the connection to the ERPO server.
- */
 void close_connection() {
     if (server_socket != -1) {
         close(server_socket);
