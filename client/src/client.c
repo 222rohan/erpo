@@ -32,7 +32,6 @@ int connect_to_server(const char *server_ip, int server_port) {
         return -1;
     }
 
-    log_event("Connected to ERPO server");
     return 0;
 }
 
