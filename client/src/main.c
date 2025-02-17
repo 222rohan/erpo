@@ -40,11 +40,11 @@ int main(int argc, char *argv[]) {
 
     log_init();
 
-    log_event("Client started...");
-    log_event("Connecting to server");
+    log_eventf("Connecting to server %s:%d", server_ip, server_port);
+    //log_event("Connecting to server");
     // Convert client process to a daemon
     daemonize(); 
-    log_event("Client daemon started successfully");
+    log_eventf("Client daemon started successfully (PID: %d)", getpid());
 
     // Handle termination signals
     signal(SIGTERM, signal_handler);
@@ -56,11 +56,11 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    log_event("Connected to ERPO server");
+    log_eventf("Connected to ERPO server at %s:%d", server_ip, server_port);
 
     // Start monitoring threads
     pthread_create(&net_thread, NULL, network_monitor_thread, &server_socket);
-    pthread_create(&sys_thread, NULL, system_monitor_thread, &server_socket);
+    //pthread_create(&sys_thread, NULL, system_monitor_thread, &server_socket);
     pthread_create(&hb_thread, NULL, heartbeat_thread, &server_socket);
 
     // Join threads (the heartbeat thread will exit if the server stops responding)
@@ -76,8 +76,11 @@ int main(int argc, char *argv[]) {
 // Network monitoring thread
 void *network_monitor_thread(void *arg) {
     int sock = *((int *)arg);
-    log_event("[Network Monitor] Started");
-    monitor_network(sock);
+    log_event("[Network Monitor] Starting...");
+    if(monitor_network(sock) == -1){
+        log_event("[Network Monitor] Failed to start");
+        exit(EXIT_FAILURE);
+    }
     return NULL;
 }
 

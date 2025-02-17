@@ -11,6 +11,6 @@
  * 
  * @param arg The server socket (for sending logs).
  */
-void monitor_network(int server_socket);
+int monitor_network(int server_socket);
 
 #endif // NETWORK_MONITOR_H
