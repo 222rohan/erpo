@@ -27,4 +27,11 @@ void log_init();
  */
 void log_event(const char *message);
 
+/**
+ * @brief Logs an event (with format strings) to the log file.
+ * 
+ * @param format The format string.
+ */
+void log_eventf(const char *format, ...);
+
 #endif // LOGGER_H

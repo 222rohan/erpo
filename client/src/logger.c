@@ -56,3 +56,38 @@ void log_event(const char *message) {
 
     pthread_mutex_unlock(&log_mutex);
 }
+
+/**
+ * @brief Logs an event (with format strings) to a file with a timestamp.
+ * 
+ * @param message The message to log.
+ */
+void log_eventf(const char *format, ...) {
+    pthread_mutex_lock(&log_mutex);
+
+    FILE* log_file = fopen(log_file_name, "a");
+
+    if (!log_file) {
+        pthread_mutex_unlock(&log_mutex);
+        return;
+    }
+
+    // Get current timestamp
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    
+    char timestamp[64];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+
+    // Write log entry
+    va_list args;
+    va_start(args, format);
+    fprintf(log_file, "[%s] ", timestamp);
+    vfprintf(log_file, format, args);
+    fprintf(log_file, "\n");
+    va_end(args);
+
+    fclose(log_file);
+
+    pthread_mutex_unlock(&log_mutex);
+}
