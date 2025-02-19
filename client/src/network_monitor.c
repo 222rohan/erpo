@@ -80,7 +80,7 @@ void packet_handler(u_char *server_socket_ptr, const struct pcap_pkthdr *header,
             log_eventf("[Network Monitor]: Payload: %s", message);
         }
     }
-    send_message_to_server("Suspicious network activity detected");
+    send_message_to_server(message);
 }
 
 /**
