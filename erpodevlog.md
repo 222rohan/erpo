@@ -41,8 +41,9 @@
 
 ## server
 1. command support (help, kick, status, stop)
-2. buggy client status recorder, need better kicking, status client indexing
+2. client status recorder fixed
 #### todo / known issues
 1. config needed
+2. auto-completion tab for console (clients)
 ---
 

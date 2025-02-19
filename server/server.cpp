@@ -66,7 +66,20 @@ void handle_client(int client_sock, const string &client_ip) {
     
     {
         lock_guard<mutex> lock(client_mutex);
-        clients.push_back({client_ip, true, time(nullptr), client_sock});
+        // add client to list, but if already exists, update status
+        bool found = false;
+        for (auto &client : clients) {
+            if (client.client_ip == client_ip) {
+                client.conn_status = true;
+                client.socket_id = client_sock;
+                client.time_connected = time(nullptr);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            clients.push_back({client_ip, true, time(nullptr), client_sock});
+        }
     }
     server_log("Client connected: " + client_ip);
     
