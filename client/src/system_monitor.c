@@ -27,7 +27,7 @@ void *usb_monitor_thread(void *arg) {
     fd = inotify_init();
     if (fd < 0) {
         log_event("Failed to initialize inotify");
-        return NULL;
+        return (void *)-1;
     }
 
     // Watch the /media and /mnt directories for USB insertions
@@ -57,7 +57,7 @@ void *usb_monitor_thread(void *arg) {
 
     inotify_rm_watch(fd, wd);
     close(fd);
-    return NULL;
+    return (void *)0;
 }
 
 /**
@@ -68,7 +68,7 @@ void *audit_monitor_thread(void *arg) {
     int audit_fd = audit_open();
     if (audit_fd < 0) {
         log_event("Failed to open auditd connection");
-        return NULL;
+        return (void *)-1;
     }
 
     log_event("System audit monitor started");
@@ -83,19 +83,29 @@ void *audit_monitor_thread(void *arg) {
     }
 
     audit_close(audit_fd);
-    return NULL;
+    return (void *)0;
 }
 
 /**
  * @brief Monitors system activity (USB insertions, file modifications).
+ * spawns two threads: 
+ * 1. USB monitor thread
+ * 2. Audit monitor thread
  */
-void monitor_system(int server_socket) {
+int monitor_system(int server_socket) {
     pthread_t usb_thread, audit_thread;
 
-    // Start USB monitor thread
-    pthread_create(&usb_thread, NULL, usb_monitor_thread, &server_socket);
-    pthread_create(&audit_thread, NULL, audit_monitor_thread, &server_socket);
+    // Start USB monitor thread, store their return values
+    int usb_thread_ret = (int)pthread_create(&usb_thread, NULL, usb_monitor_thread, &server_socket);
+    int audit_thread_ret =(int)pthread_create(&audit_thread, NULL, audit_monitor_thread, &server_socket);
 
     pthread_join(usb_thread, NULL);
     pthread_join(audit_thread, NULL);
+
+    if (usb_thread_ret < 0 || audit_thread_ret < 0) {
+        log_event("Failed to start system monitor threads");
+        return -1;
+    }
+
+    return 0;
 }

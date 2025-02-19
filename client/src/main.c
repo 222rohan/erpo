@@ -81,15 +81,18 @@ void *network_monitor_thread(void *arg) {
         log_event("[Network Monitor] Failed to start");
         exit(EXIT_FAILURE);
     }
-    return NULL;
+    return;
 }
 
 // System monitoring thread
 void *system_monitor_thread(void *arg) {
     int sock = *((int *)arg);
-    log_event("[System Monitor] Started");
-    monitor_system(sock);
-    return NULL;
+    log_event("[System Monitor] Starting...");
+    if(monitor_system(sock) == -1) {
+        log_event("[System Monitor] Failed to start");
+        exit(EXIT_FAILURE);
+    }
+    return;
 }
 
 // Heartbeat thread: sends "heartbeat" messages and waits for "OK" reply.
@@ -109,7 +112,7 @@ void *heartbeat_thread(void *arg) {
         }
         //log_event("Heartbeat OK received");
     }
-    return NULL;
+    return;
 }
 
 void daemonize() {
