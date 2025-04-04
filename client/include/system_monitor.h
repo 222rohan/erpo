@@ -6,6 +6,6 @@
  * 
  * @param server_socket The server socket to send logs.
  */
-int monitor_system(int server_socket);
+int monitor_system();
 
 #endif // SYSTEM_MONITOR_H

@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
     // Start monitoring threads
     pthread_create(&net_thread, NULL, network_monitor_thread, &server_socket);
-    //pthread_create(&sys_thread, NULL, system_monitor_thread, &server_socket);
+    pthread_create(&sys_thread, NULL, system_monitor_thread, &server_socket);
     pthread_create(&hb_thread, NULL, heartbeat_thread, &server_socket);
 
     // Join threads (the heartbeat thread will exit if the server stops responding)

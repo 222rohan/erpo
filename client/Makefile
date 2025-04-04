@@ -8,7 +8,7 @@ CFLAGS = -Wall -Wextra
 INCLUDES = -Iinclude
 
 # Library Flags (Required for pthread, pcap, auditd)
-LIBS = -lpthread -lpcap -laudit
+LIBS += -lpthread -lpcap -ludev
 
 # Source Files
 SRCS = src/main.c \
@@ -27,7 +27,7 @@ all: $(TARGET)
 
 # Build the client
 $(TARGET): $(SRCS)
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(TARGET) $(SRCS) $(LIBS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $(TARGET) $(SRCS) $(LIBS) $(PKGCONFIG)
 
 # Clean build files
 clean:

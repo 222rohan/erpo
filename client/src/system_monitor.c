@@ -1,111 +1,115 @@
+// system monitor 
+// (using udev), enumarate all devices, and monitor changes in devices
+// link using -ludev
+
 #include "../include/system_monitor.h"
 #include "../include/logger.h"
 #include "../include/client.h"
 
+#include <libudev.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <sys/inotify.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <libaudit.h>
 
-#define EVENT_SIZE (sizeof(struct inotify_event))
-#define BUF_LEN (1024 * (EVENT_SIZE + 16))
 
-/**
- * @brief Monitors USB insertions using inotify.
- */
-void *usb_monitor_thread(void *arg) {
-    int server_socket = *((int *)arg);
-    int fd, wd;
-    char buffer[BUF_LEN];
 
-    fd = inotify_init();
-    if (fd < 0) {
-        log_event("Failed to initialize inotify");
-        return (void *)-1;
+static void print_device(struct udev_device* dev, int srv_event)
+{
+    const char* action = udev_device_get_action(dev);
+    if (! action)
+        action = "exists";
+
+    const char* vendor = udev_device_get_sysattr_value(dev, "idVendor");
+    if (! vendor)
+        vendor = "0000";
+
+    const char* product = udev_device_get_sysattr_value(dev, "idProduct");
+    if (! product)
+        product = "0000";
+
+    log_eventf("[System Monitor] %s %s %6s %s:%s %s\n",
+           udev_device_get_subsystem(dev),
+           udev_device_get_devtype(dev),
+           action,
+           vendor,
+           product,
+           udev_device_get_devnode(dev));
+
+    if(srv_event) {
+        send_message_to_server("[System Monitor] Storage Device Event Detected");
     }
-
-    // Watch the /media and /mnt directories for USB insertions
-    wd = inotify_add_watch(fd, "/media", IN_CREATE | IN_ATTRIB);
-    inotify_add_watch(fd, "/mnt", IN_CREATE | IN_ATTRIB);
-
-    log_event("USB monitor started");
-
-    while (1) {
-        int length = read(fd, buffer, BUF_LEN);
-        if (length < 0) {
-            continue;
-        }
-
-        for (int i = 0; i < length; i += EVENT_SIZE + ((struct inotify_event *)&buffer[i])->len) {
-            struct inotify_event *event = (struct inotify_event *)&buffer[i];
-
-            if (event->mask & IN_CREATE || event->mask & IN_ATTRIB) {
-                char log_msg[256];
-                snprintf(log_msg, sizeof(log_msg), "USB device detected: %s", event->name);
-                log_event(log_msg);
-                send_message_to_server(log_msg);
-                
-            }
-        }
-    }
-
-    inotify_rm_watch(fd, wd);
-    close(fd);
-    return (void *)0;
 }
 
-/**
- * @brief Monitors system modifications using auditd.
- */
-void *audit_monitor_thread(void *arg) {
-    int server_socket = *((int *)arg);
-    int audit_fd = audit_open();
-    if (audit_fd < 0) {
-        log_event("Failed to open auditd connection");
-        return (void *)-1;
+static void process_device(struct udev_device* dev, int srv_event)
+{
+    if (dev) {
+        if (udev_device_get_devnode(dev))
+            print_device(dev,srv_event);
+
+        udev_device_unref(dev);
     }
-
-    log_event("System audit monitor started");
-
-    while (1) {
-        char buffer[1024];
-        int length = audit_get_reply(audit_fd, (struct audit_reply *)buffer, sizeof(buffer), 0);
-        if (length > 0) {
-            log_event("System modification detected");
-            send_message_to_server("[Audit Monitor] System modification detected");
-        }
-    }
-
-    audit_close(audit_fd);
-    return (void *)0;
 }
 
-/**
- * @brief Monitors system activity (USB insertions, file modifications).
- * spawns two threads: 
- * 1. USB monitor thread
- * 2. Audit monitor thread
- */
-int monitor_system(int server_socket) {
-    pthread_t usb_thread, audit_thread;
+static void enumerate_devices(struct udev* udev)
+{
+    log_event("[System Monitor] Enumerating Devices...");
+    struct udev_enumerate* enumerate = udev_enumerate_new(udev);
 
-    // Start USB monitor thread, store their return values
-    int usb_thread_ret = (int)pthread_create(&usb_thread, NULL, usb_monitor_thread, &server_socket);
-    int audit_thread_ret =(int)pthread_create(&audit_thread, NULL, audit_monitor_thread, &server_socket);
+    udev_enumerate_add_match_subsystem(enumerate, "block");
+    udev_enumerate_scan_devices(enumerate);
 
-    pthread_join(usb_thread, NULL);
-    pthread_join(audit_thread, NULL);
+    struct udev_list_entry* devices = udev_enumerate_get_list_entry(enumerate);
+    struct udev_list_entry* entry;
 
-    if (usb_thread_ret < 0 || audit_thread_ret < 0) {
-        log_event("Failed to start system monitor threads");
+    udev_list_entry_foreach(entry, devices) {
+        const char* path = udev_list_entry_get_name(entry);
+        struct udev_device* dev = udev_device_new_from_syspath(udev, path);
+        process_device(dev, 0);
+    }
+
+    udev_enumerate_unref(enumerate);
+}
+
+static void monitor_devices(struct udev* udev)
+{
+    int srv_event = 0;
+    struct udev_monitor* mon = udev_monitor_new_from_netlink(udev, "udev");
+
+    udev_monitor_filter_add_match_subsystem_devtype(mon, "block", NULL);
+    udev_monitor_enable_receiving(mon);
+
+    int fd = udev_monitor_get_fd(mon);
+
+    while (1) {
+        srv_event = 0;
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(fd, &fds);
+
+        int ret = select(fd+1, &fds, NULL, NULL, NULL);
+        if (ret <= 0)
+            break;
+
+        if (FD_ISSET(fd, &fds)) {
+            srv_event = 1;
+            struct udev_device* dev = udev_monitor_receive_device(mon);
+            process_device(dev, srv_event);
+        }
+    }
+}
+
+int monitor_system() {
+    struct udev* udev = udev_new();
+    if (!udev) {
+        fprintf(stderr, "udev_new() failed\n");
         return -1;
     }
 
+    enumerate_devices(udev);
+    monitor_devices(udev);
+
+    udev_unref(udev);
     return 0;
 }
+    
