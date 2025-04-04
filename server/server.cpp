@@ -51,10 +51,17 @@ string format_time_diff(time_t start, time_t end) {
 mutex log_mutex;
 void server_log(const string &message) {
     lock_guard<mutex> lock(log_mutex);
-    cout << message << endl;
+    //get formatted timestamp in hh:mm:ss format
+    time_t now = time(0);
+    tm *ltm = localtime(&now);
+    string timestamp = to_string(0 + ltm->tm_hour) + ":" + to_string(1 + ltm->tm_min) + ":" + to_string(1 + ltm->tm_sec);
+
+    timestamp = "["+timestamp + "]";
+    cout << timestamp << " " << message << endl;
+    
     ofstream log_file("server.log", ios::app);
     if (log_file.is_open()) {
-        log_file << message << endl;
+        log_file << timestamp + message << endl;
         log_file.close();
     }
 }
